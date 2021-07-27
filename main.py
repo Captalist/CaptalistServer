@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 import smtplib, ssl
 import threading
 from server import *
+import random
 from flask_socketio import SocketIO, emit, join_room, leave_room, send
 app = Flask(__name__)
 
@@ -184,7 +185,7 @@ def change_city_data():
             })
         elif data['action'] == 'remove_iron':
             iron = Cities.active_cities[data['id']].iron
-            Cities.active_cities[data['id']].change_iron(iron + 1)
+            Cities.active_cities[data['id']].change_iron(iron - 1)
             return jsonify({
                 'return': 'Success',
                 'iron': Cities.active_cities[data['id']].iron
@@ -210,6 +211,7 @@ def change_city_data():
 
 @socketio.on('Joined')
 def on_join(data):
+    print(data)
     username = data['country']
     room = data['room']
     join_room(str(room))
@@ -224,5 +226,7 @@ def change_name(data):
 if __name__ == '__main__':
     User.server_running = True
     Server.run()
-    socketio.run(app, host='0.0.0.0',debug=True)
+    port = random.randint(2000, 9000)
+    print("POrt", port)
+    socketio.run(app, host='0.0.0.0',debug=True,port=port)
     User.server_running= False
