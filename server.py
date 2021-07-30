@@ -1,5 +1,6 @@
 from gov_classes import *
 from cities import Cities
+from alliance import Alliance
 import requests 
 
 class Server:
@@ -78,6 +79,47 @@ class Server:
         data = {'return': 'Success'}
         return {**data, **returns}
 
+    def create_new_city(self, user_id, city_name):
+      query = 'select id from Countries where server={} and owner={}'.format(self.id, user_id)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+      
+      c_id = cursor.fetchone()
+
+      if c_id == None:
+        return "Country does not exist"
+
+      query = """
+      insert into cities (name, level, max_pop, tax, pop, gov_id, oil, iron, water, food) values ('{}', 0, 100, 0.25, 100, {}, 0, 0, 0, 0)
+      """.format(city_name, c_id[0])
+      try:
+        cursor.execute(query)
+        conn.commit()
+        query = "select * from cities where name='{}' and gov_id={}".format(city_name, c_id[0])
+        cursor.execute(query)
+        new_da = cursor.fetchone()
+        new_city = Cities(*new_da)
+        self.city[new_city.id] = new_city
+
+        conn.close()
+        return ["Created", self.countries[c_id[0]].name]
+      except Exception as e:
+        word = 'Query for creating new city:' +'\n'+ query
+        return word
+
+    @staticmethod
+    def form_new_city(server, user_id, city_name):
+      try:
+        servers = Server.servers[server]
+        returns =  servers.create_new_city(user_id, city_name)
+        if type(returns) == list:
+          return {'returns': returns[0], 'country':returns[1]}
+        return {'returns': servers.create_new_city(user_id, city_name)}
+      except KeyError:
+        return {'returns': 'Server does not exist'}
+      
+
     def create_country(self, country_name, country_flag, user_id):
         query = "select id from Countries where name='{}'".format(country_name)
         conn = sqlite3.connect('server.db')
@@ -106,8 +148,8 @@ class Server:
                     cursor.execute(query)
                     ids =  cursor.fetchone()
 
-                    query = """insert into cities (name, level, max_pop, tax, pop, gov_id) 
-                    values ('{}', 0, 100, 0.25, 100, {})""".format(
+                    query = """insert into cities (name, level, max_pop, tax, pop, gov_id, oil, iron, water, food) 
+                    values ('{}', 0, 100, 0.25, 100, {}, 0, 0, 0, 0)""".format(
                         country_name+' city', ids[0]
                     )
                     cursor.execute(query) 
@@ -245,6 +287,25 @@ class Server:
 
         return count
     
+    def get_user_alliances(self, gov_id):
+      count = {}
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      query = "select * from Alliance where creator={} or acceptor={}".format(gov_id, gov_id)
+      cursor.execute(query)
+      allies = cursor.fetchall()
+
+      if allies == None:
+        return None
+
+      for ally in allies:
+        if not Alliance.is_it_active(ally[0]):
+          Alliance(*ally)
+
+        count[ally[0]] = ally
+
+      return count  
+
 
     @staticmethod
     def create_new_server(user_id, name, code):
@@ -311,5 +372,64 @@ class Server:
         for key, val in user_countries.items():
             U_C[key] = val.return_data()
             Server.servers[id].get_user_cities(key)
+            Server.servers[id].get_user_alliances(key)
         
         return U_C
+
+    def add_new_ally(self, ally_name, country_id):
+      query = "select id from Countries where name='{}'".format(ally_name)
+
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+
+      ally_id = cursor.fetchone()
+
+      if ally_id == None:
+        return "Country does not exist"
+
+      query = "select id from alliance_request where creator={} and acceptor={}".format(country_id, ally_id)
+
+      cursor.execute(query)
+
+      ans = cursor.fetchone()
+
+      if ans != None:
+        return "Request has already been sent"
+
+      query = "select id from alliance_request where creator={} and acceptor={}".format(ally_id, country_id)
+
+      cursor.execute(query)
+
+      ans = cursor.fetchone()
+
+      if ans != None:
+        return "Request has already been sent"
+
+      conn.close()
+
+      Government.create_alliance_request(country_id, ally_id)
+
+      return "Request sent"
+
+    def getAllianceRequest(self, country_id):
+      query = "select * from alliance_request where acceptor={}".format(country_id)
+
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+
+      all_request =  cursor.fetchall()
+      all_requests = {}
+
+      for request in all_request:
+        query = "select name from Countries where id={}".format(request[0])
+        cursor.execute(query)
+
+        name = cursor.fetchone()[0]
+        statement = "{} wants to form an alliance".format(name)
+        all_request[request[0]] = {'data':[*request], 'name': name, 'statement': statement}
+
+      return all_request
+
+

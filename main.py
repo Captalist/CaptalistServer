@@ -209,6 +209,36 @@ def change_city_data():
     except KeyError:
         return jsonify({'return': 'Invalid Parameters'})
 
+@app.route('/create/new_city', methods=['POST'])
+def create_new_city():
+  data = request.get_json()
+  try:
+    statement = Server.form_new_city(data['server_id'], data['user_id'], data['name'])
+    return jsonify(statement)
+  except KeyError:
+    return jsonify({'returns': 'Invalid Parameters'})
+
+@app.route('/get/alliance/data', methods=['POST'])
+def get_alliance_data():
+  data = request.get_json()
+
+  try:
+    statement = Alliance.alliance_data(data['country_id'])
+    print(statement)
+    return jsonify({'data': statement, 'returns': 'Success'})
+  except Exception as e:
+    print(data)
+    print(e)
+    return jsonify({'returns': 'Unsuccessful'})
+
+@app.route('/add/ally', methods=['POST'])
+def add_ally():
+  data = request.get_json()
+
+  return jsonify(Server.servers[data['server_id']].add_new_ally(
+    data['new_ally'], data['country_id']
+  ))
+
 @socketio.on('Joined')
 def on_join(data):
     print(data)
@@ -222,11 +252,23 @@ def change_name(data):
     old_name = Cities.active_cities[data['id']].name 
     emit("Update", old_name + ' city has now become ' + data['name'] +' city', to=str(data['room']), broadcast=True)
 
+@socketio.on('new_city_created')
+def new_city_created(data):
+  String = "{} has created a new city called {}".format(data['country'], data['city'])
+  emit("Update", String, to=str(data['room']), broadcast=True)
+
+@socketio.on('AllianceRequest')
+def AllianceRequest(data):
+  returns = Server.servers[data['server']].getAllianceRequest(data['country'])
+  emit("HereIsYourAllianceRequest", returns)
 
 if __name__ == '__main__':
     User.server_running = True
+    Alliance.server_running = True
     Server.run()
+    threading.Thread(target=Alliance.run_trade, args=()).start()
     port = random.randint(2000, 9000)
     print("POrt", port)
     socketio.run(app, host='0.0.0.0',debug=True,port=port)
     User.server_running= False
+    Alliance.server_running = False

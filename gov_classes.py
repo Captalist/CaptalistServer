@@ -166,4 +166,13 @@ class Government:
     def remove_money(self, amount):
         new = self.money - amount
         self.change_money(new)
-        
+
+    @staticmethod
+    def create_alliance_request(creator, acceptor):
+      query= "insert into alliance_request (creator, acceptor), values ({},{})".format(creator, acceptor)
+
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)  
+      conn.commit()
+      conn.close()
