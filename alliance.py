@@ -9,30 +9,44 @@ class Alliance:
 
   def __init__(self, id, creator, acceptor, army_trade, communication, trade, transport):
     self.id = id
-    self.creator = Government.active_gov[creator]
-    self.acceptor = Government.active_gov[acceptor]
+    try:
+      self.creator = Government.active_gov[creator]
+      self.acceptor = Government.active_gov[acceptor]
+      if army_trade == 1:
+        self.army_trade = True
+      else:
+        self.army_trade = False
 
-    if army_trade == 1:
-      self.army_trade = True
-    else:
-      self.army_trade == False
+      if communication == 1:
+        self.communication = True
+      else:
+        self.communication = False
 
-    if communication == 1:
-      self.communication = True
-    else:
-      self.communication = False
+      if trade == 1:
+        self.trade = True
+      else:
+        self.trade = False
 
-    if trade == 1:
-      self.trade = True
-    else:
-      self.trade = False
+      if transport == 1:
+        self.transport = True
+      else:
+        self.transport = False
 
-    if transport == 1:
-      self.transport = True
-    else:
-      self.transport = False
+      Alliance.all_active_allies[self.id] = self
+      print(self)
+    except KeyError:
+      self.delete()
 
-    Alliance.all_active_allies[self.id] = self
+  def delete(self):
+    try:
+      Alliance.all_active_allies.pop(self.id)
+    except KeyError:
+      pass
+    del self
+
+  def __repr__(self):
+    string = "New Alliance created between {} and {}".format(self.acceptor.name,self.creator.name)
+    return string
 
   def change_db(self, query):
     conn = sqlite3.connect('server.db')
@@ -52,6 +66,16 @@ class Alliance:
       self.__dict__[which] = 0
     else:
       return "Trade Agreement has not been created"
+
+  def return_data_and_trade_deals(self, country_id):
+    return {  **{
+      'Army Trade': self.army_trade,
+      'Transport': self.transport,
+      'Communication': self.communication,
+      'Trade': self.trade,     
+      }, 
+      **self.return_data(country_id)
+    }
 
   def start_trade_agreement(self, which: str):
     trades = {'army_trade': self.army_trade, 'communication': self.communication, 'trade': self.trade, 'transport': self.transport}
@@ -78,7 +102,7 @@ class Alliance:
   def return_data(self, country_id):
     if self.creator.ids != country_id:
       return {'flag': self.creator.flag, 'name': self.creator.name}
-    return {'flag': self.acceptor.flag, 'name': self.acceptor.flag}
+    return {'flag': self.acceptor.flag, 'name': self.acceptor.name}
 
   def create_trade(self, to, from_who, item, amount, cost, times):
     to = Government.active_gov[to]

@@ -176,42 +176,50 @@ class Server:
 
     @staticmethod
     def user_sign_out(user_id):
-        """
-            This will have to be a thread because it takes to long
-            First Loops through online servers and gets all the server
-            then loops through each server online users and checks for the user
-            If the user is found it loops through server gov and see if 
-            the gov belongs to the user and if it does. Loops through
-            the server resources and see if resources belongs to gov 
-            if it does it loops through resources belonging to gov and
-            remove that resource from server
-            then deletes all the gov belonging to user and then finnally 
-            deletes the user
-        """
-        for server in Server.servers.values():
-            for user, server_user in server.users.items():
-                if server_user.id == user_id:
-                    for key, server_gov in server.countries.items():
-                        if server_gov.owner == user_id or server_user:
-                            server.countries.pop(key)
-                            for city in server.city.values():
-                                if city.gov_id == server_gov.ids:
-                                    city.close()
-                            server_gov.close()
-                    server.users.pop(user)
-                    user_name = server_user.name
-                    server_user.delete()
-                    print("Signing Out:", user_name)
+      query = "select id,server from countries where owner={}".format(user_id)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
 
-        # This is incase the user did not join any servers 
-        # But was still online; 
+      cursor.execute(query)
+
+      count_d = cursor.fetchall()
+
+      server_and_Count = []
+
+      for country in count_d:
+        query = "select id from Alliance where creator={} or acceptor={}".format(country[0], country[0])
+        cursor.execute(query)
+        alliance_d = cursor.fetchall()
+
+        for alliance in alliance_d:
+          try:
+            Alliance.all_active_allies[alliance[0]].delete()
+          except KeyError:
+            continue
+
+        query = "select id from cities where gov_id={}".format(country[0])
+        cursor.execute(query)
+        cities_d = cursor.fetchall()
+
+        for city in cities_d:
+          try:
+            Server.servers[country[1]].city.pop(city[0])
+            Cities.active_cities[city[0]].close()
+          except KeyError:
+            continue
+
         try:
-            actual_user = User.active_user[user_id]
-            user_name =  actual_user.name
-            actual_user.delete()
-            print("Signing Out:", user_name)
+          Server.servers[country[1]].countries.pop(country[0])
+          server_and_Count.append({
+            'room': str(country[1]),
+            'Country_Name': Government.active_gov[country[0]].name
+          })
+          Government.active_gov[country[0]].close()
         except KeyError:
-            pass
+          continue
+
+      User.active_user[user_id].delete()
+      return server_and_Count
 
     @staticmethod
     def run():
@@ -294,12 +302,12 @@ class Server:
       query = "select * from Alliance where creator={} or acceptor={}".format(gov_id, gov_id)
       cursor.execute(query)
       allies = cursor.fetchall()
-
       if allies == None:
         return None
 
       for ally in allies:
         if not Alliance.is_it_active(ally[0]):
+          print("In ALliance creation", ally)
           Alliance(*ally)
 
         count[ally[0]] = ally
@@ -370,9 +378,9 @@ class Server:
         U_C = {}
 
         for key, val in user_countries.items():
-            U_C[key] = val.return_data()
-            Server.servers[id].get_user_cities(key)
-            Server.servers[id].get_user_alliances(key)
+          U_C[key] = val.return_data()
+          Server.servers[id].get_user_cities(key)
+          Server.servers[id].get_user_alliances(key)
         
         return U_C
 
@@ -388,8 +396,8 @@ class Server:
       if ally_id == None:
         return "Country does not exist"
 
-      query = "select id from alliance_request where creator={} and acceptor={}".format(country_id, ally_id)
-
+      query = "select id from alliance_request where creator={} and acceptor={}".format(country_id, ally_id[0])
+      print(query)
       cursor.execute(query)
 
       ans = cursor.fetchone()
@@ -397,7 +405,7 @@ class Server:
       if ans != None:
         return "Request has already been sent"
 
-      query = "select id from alliance_request where creator={} and acceptor={}".format(ally_id, country_id)
+      query = "select id from alliance_request where creator={} and acceptor={}".format(ally_id[0], country_id)
 
       cursor.execute(query)
 
@@ -408,13 +416,12 @@ class Server:
 
       conn.close()
 
-      Government.create_alliance_request(country_id, ally_id)
+      Government.create_alliance_request(country_id, ally_id[0])
 
       return "Request sent"
 
     def getAllianceRequest(self, country_id):
       query = "select * from alliance_request where acceptor={}".format(country_id)
-
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
       cursor.execute(query)
@@ -428,8 +435,48 @@ class Server:
 
         name = cursor.fetchone()[0]
         statement = "{} wants to form an alliance".format(name)
-        all_request[request[0]] = {'data':[*request], 'name': name, 'statement': statement}
+        data =  [*request]
+        print(data)
+        all_requests[request[0]] = {'data':data, 'name': name, 'statement': statement}
 
-      return all_request
+      return all_requests
 
+    def acceptAllianceRequest(self, acceptor, creator):
+      try:
+        all_acceptor = Government.active_gov[acceptor]
+        all_creator =  Government.active_gov[creator]
+        query = "delete from alliance_request where acceptor={} and creator={}".format(acceptor, creator)
 
+        conn = sqlite3.connect('server.db')
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+        conn.close()
+
+        row_id = Government.create_alliance(creator, acceptor)
+      except KeyError:
+        query = "delete from alliance_request where acceptor={} and creator={}".format(acceptor, creator)
+
+        conn = sqlite3.connect('server.db')
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+        conn.close()
+
+        row_id = Government.create_alliance(creator, acceptor)
+        return "One of the government is not on. Alliance will be activated when they come on"
+
+      Alliance(row_id, creator, acceptor, 0, 0, 0, 0)
+
+      return "Success"
+
+    def denyAllianceRequest(self, acceptor, creator):
+      query = "delete from alliance_request where acceptor={} and creator={}".format(acceptor, creator)
+
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+      conn.commit()
+      conn.close()
+
+      return "Success"

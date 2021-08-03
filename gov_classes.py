@@ -169,10 +169,26 @@ class Government:
 
     @staticmethod
     def create_alliance_request(creator, acceptor):
-      query= "insert into alliance_request (creator, acceptor), values ({},{})".format(creator, acceptor)
+      query= "insert into alliance_request (creator, acceptor) values ({},{})".format(creator, acceptor)
 
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
       cursor.execute(query)  
       conn.commit()
       conn.close()
+
+    @staticmethod
+    def create_alliance(creator, acceptor):
+      query = "insert into Alliance (creator, acceptor, army_trade, communication, trade, transport) values ({}, {}, 0, 0, 0, 0)".format(creator, acceptor)
+
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+
+      conn.commit()
+
+      lastrow = cursor.lastrowid
+
+      conn.close()
+      
+      return lastrow

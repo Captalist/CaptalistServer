@@ -64,9 +64,12 @@ def login():
 
 @app.route('/sign_out', methods=['POST'])
 def sign_out():
-    data = request.get_json()
-    threading.Thread(target=Server.user_sign_out, args=(data['id'],))
-    return jsonify({'return': 'Done'})
+  data = request.get_json()
+  sign_u_m = Server.user_sign_out(data['id'])
+  for me in sign_u_m:
+    message = "{} has left the server".format(me['Country_Name'])
+    emit('Update',message, to=me['room'], namespace='/')
+  return jsonify({'return': 'Done'})
 
 
 @app.route('/server_data', methods=["POST"])
@@ -224,10 +227,8 @@ def get_alliance_data():
 
   try:
     statement = Alliance.alliance_data(data['country_id'])
-    print(statement)
     return jsonify({'data': statement, 'returns': 'Success'})
   except Exception as e:
-    print(data)
     print(e)
     return jsonify({'returns': 'Unsuccessful'})
 
@@ -235,9 +236,34 @@ def get_alliance_data():
 def add_ally():
   data = request.get_json()
 
-  return jsonify(Server.servers[data['server_id']].add_new_ally(
+  return jsonify({'return':Server.servers[data['server_id']].add_new_ally(
     data['new_ally'], data['country_id']
-  ))
+  )})
+
+@app.route('/accept/alliance', methods=['POST'])
+def accept_alliance():
+  data = request.get_json()
+  return jsonify({
+    'return': Server.servers[data['server_id']].acceptAllianceRequest(
+      data['acceptor'], data['creator']
+    )
+  })
+
+@app.route('/deny/alliance', methods=['POST'])
+def deny_alliance():
+  data = request.get_json()
+  return jsonify({
+    'return': Server.servers[data['server_id']].denyAllianceRequest(
+      data['acceptor'], data['creator']
+    )
+  })
+
+@app.route('/alliance/data_and_trade_deals', methods=['POST'])
+def data_and_trade_deals():
+  data = request.get_json()
+  return jsonify({
+    'return': Alliance.all_active_allies[int(data['alliance'])].return_data_and_trade_deals(data['country_id'])
+  })
 
 @socketio.on('Joined')
 def on_join(data):
@@ -259,6 +285,7 @@ def new_city_created(data):
 
 @socketio.on('AllianceRequest')
 def AllianceRequest(data):
+  print("DATA", data)
   returns = Server.servers[data['server']].getAllianceRequest(data['country'])
   emit("HereIsYourAllianceRequest", returns)
 
