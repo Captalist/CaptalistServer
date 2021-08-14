@@ -265,6 +265,13 @@ def data_and_trade_deals():
     'return': Alliance.all_active_allies[int(data['alliance'])].return_data_and_trade_deals(data['country_id'])
   })
 
+@app.route('/alliance/create_trade_deal', methods=['POST'])
+def change_alliance_trade_deal():
+  data = request.get_json()
+  return jsonify({
+    'return': Alliance.create_trade_deal(data['alliance'], data['type'], data['acceptor'])
+  })
+
 @socketio.on('Joined')
 def on_join(data):
     print(data)
@@ -285,9 +292,13 @@ def new_city_created(data):
 
 @socketio.on('AllianceRequest')
 def AllianceRequest(data):
-  print("DATA", data)
   returns = Server.servers[data['server']].getAllianceRequest(data['country'])
   emit("HereIsYourAllianceRequest", returns)
+
+@socketio.on('AllianceTradeRequest')
+def AllianceTradeRequest(data):
+  returns = Alliance.getAllianceTradeRequests(data['country'])
+  emit("HEREISYOURALLIANCETRADEREQUESTS", returns)
 
 if __name__ == '__main__':
     User.server_running = True
@@ -296,6 +307,6 @@ if __name__ == '__main__':
     threading.Thread(target=Alliance.run_trade, args=()).start()
     port = random.randint(2000, 9000)
     print("POrt", port)
-    socketio.run(app, host='0.0.0.0',debug=True,port=port)
+    socketio.run(app, host='0.0.0.0', debug=True, port=port)
     User.server_running= False
     Alliance.server_running = False

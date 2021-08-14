@@ -210,6 +210,7 @@ class Server:
 
         try:
           Server.servers[country[1]].countries.pop(country[0])
+          Server.servers[country[1]].Users.pop(user_id)
           server_and_Count.append({
             'room': str(country[1]),
             'Country_Name': Government.active_gov[country[0]].name
@@ -430,7 +431,7 @@ class Server:
       all_requests = {}
 
       for request in all_request:
-        query = "select name from Countries where id={}".format(request[0])
+        query = "select name from Countries where id={}".format(request[1])
         cursor.execute(query)
 
         name = cursor.fetchone()[0]

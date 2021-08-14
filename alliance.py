@@ -156,3 +156,170 @@ class Alliance:
         print(e)
     
     return allies_Data
+
+  @staticmethod
+  def insert_into_db(query):
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+
+  @staticmethod
+  def trade_request_already_exist(type_trade, creator_id, acceptor_id, alliance_id):
+    real_name = {'army_trade': 'army_trade',
+    'transport_trade': 'transport', 
+    'com_trade': 'communication', 
+    'trade': 'trade'}
+
+    query = "select {} from Alliance where id={}".format(real_name[type_trade], alliance_id)
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
+    cursor.execute(query)
+
+    exist_already = cursor.fetchone()[0]
+
+    if exist_already == 1:
+      return True
+    
+    real_tb = {'army_trade': 'army_trade_request',
+    'transport_trade': 'transport_request', 
+    'com_trade': 'communication_trade_requests', 
+    'trade': 'trade_request'}
+
+    query = "select id from {} where creator={} and alliance={}".format(
+      real_tb[type_trade], creator_id, alliance_id
+    )
+    cursor.execute(query)
+
+    exist_already = cursor.fetchone()
+
+    if exist_already != None:
+      return True
+
+    query = "select id from {} where creator={} and alliance={}".format(
+      real_tb[type_trade], acceptor_id, alliance_id
+    )
+    cursor.execute(query)
+
+    exist_already = cursor.fetchone()
+
+    if exist_already != None:
+      return True
+
+    return False
+
+  @staticmethod
+  def create_army_trade_request(alliance_id, creator_id, acceptor_id):
+    query = "insert into army_trade_request (creator, acceptor, alliance) values ({}, {}, {})".format(creator_id, acceptor_id, alliance_id)
+
+    Alliance.insert_into_db(query)
+
+  @staticmethod
+  def create_communication_trade_requests(alliance_id, creator_id, acceptor_id):
+    query = "insert into communication_trade_requests (creator, acceptor, alliance) values ({}, {}, {})".format(creator_id, acceptor_id, alliance_id)
+
+    Alliance.insert_into_db(query)
+
+  @staticmethod
+  def create_trade_request(alliance_id, creator_id, acceptor_id):
+    query = "insert into trade_request (creator, acceptor, alliance) values ({}, {}, {})".format(creator_id, acceptor_id, alliance_id)
+
+    Alliance.insert_into_db(query)
+
+  @staticmethod
+  def create_transport_request(alliance_id, creator_id, acceptor_id):
+    query = "insert into transport_request (creator, acceptor, alliance) values ({}, {}, {})".format(creator_id, acceptor_id, alliance_id)
+
+    Alliance.insert_into_db(query)
+
+  @staticmethod
+  def create_trade_deal(alliance_id, trade_type, acceptor_name):
+    query = 'select id from Countries where name="{}"'.format(acceptor_name)
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
+    cursor.execute(query)
+
+    acceptor_id = cursor.fetchone()
+
+    if acceptor_id == None:
+      return "Country does not exist"
+
+    query = "select creator, acceptor from Alliance where id={}".format(alliance_id)
+
+    cursor.execute(query)
+
+    all_d = cursor.fetchone()
+
+    conn.close()
+
+    if all_d == None:
+      return "Alliance no longer exist"
+
+    if all_d[0] == acceptor_id[0]:
+      creator_id =  all_d[1]
+    else:
+      creator_id = all_d[0]
+
+    impor_func = {'army_trade': Alliance.create_army_trade_request,
+    'transport_trade': Alliance.create_transport_request, 
+    'com_trade': Alliance.create_communication_trade_requests, 
+    'trade': Alliance.create_trade_request}
+    
+    if Alliance.trade_request_already_exist(trade_type, creator_id, acceptor_id, alliance_id) == False:
+
+      impor_func[trade_type](alliance_id, creator_id, acceptor_id)
+
+      return "Trade Request has been sent"
+    else:
+      return "Trade request already sent"
+
+  @staticmethod
+  def getAllianceTradeRequests(country_id):
+    trade_list = {'army_trade_request': 'Army Trade',
+    'transport_request': 'Transport Trade', 
+    'communication_trade_requests': 'Communication Trade', 
+    'trade_request': 'Trade'}
+
+    all_different_trade_request = {'Army Trade': [], 'Transport Trade': [], 
+    'Communication Trade': [], 'Trade': []}
+
+    for keys in trade_list:
+      query = "select * from {} where acceptor={}".format(keys, country_id)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
+
+      data = cursor.fetchone()
+
+      query = "select name from Countries where id={}".format(data[1])
+      cursor.execute(query)
+
+      name = cursor.fetchone()[0]
+
+      all_different_trade_request[trade_list[keys]].append({
+        'data': data,
+        'statement': Alliance.generate_trade_request_statement(keys, name)
+      })
+
+    return all_different_trade_request
+
+
+  @staticmethod
+  def generate_trade_request_statement(trade_type, name):
+    statement = "Unknown trade type"
+    
+    if trade_type == 'army_trade':
+      statement = f'{name} is requesting to create a Army Trade which will cost you 300 Capital to create and 600 Capital to manage. Are you sure you want to accept?'
+    elif trade_type == 'transport_trade':
+      statement = f'{name} is requesting to create a Transport Trade which will cost you 1000 Capital to create and 2000 Capital to manage. Are you sure you want to accept?'
+    elif trade_type == 'com_trade':
+      statement = f'{name} is requesting to create a Communication Trade which will cost you 2500 Capital to create and 5000 Capital to manage. Are you sure you want to accept?'
+    elif trade_type == 'trade':
+      statement = f'{name} is requesting to create a Trade which will cost you 5000 Capital and 7000 Capital to manage. Are you sure you want to accept?'
+
+    return statement
+    
+
+
+    
