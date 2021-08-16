@@ -169,10 +169,27 @@ class Government:
 
     @staticmethod
     def create_alliance_request(creator, acceptor):
-      query= "insert into alliance_request (creator, acceptor) values ({},{})".format(creator, acceptor)
-
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
+      query = 'select id from alliance_request where creator={} and acceptor={}'.format(creator, acceptor)
+
+      cursor.execute(query)
+
+      already_exist = cursor.fetchone()
+      if already_exist == None:
+        return
+
+      query = 'select id from alliance_request where creator={} and acceptor={}'.format(acceptor, creator)
+
+      cursor.execute(query)
+
+      already_exist = cursor.fetchone()
+      if already_exist == None:
+        return
+        
+      query= "insert into alliance_request (creator, acceptor) values ({},{})".format(creator, acceptor)
+
+      
       cursor.execute(query)  
       conn.commit()
       conn.close()

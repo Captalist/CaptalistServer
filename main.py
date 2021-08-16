@@ -272,12 +272,30 @@ def change_alliance_trade_deal():
     'return': Alliance.create_trade_deal(data['alliance'], data['type'], data['acceptor'])
   })
 
+@app.route('/alliane/end_trade_deal', methods=['POST'])
+def end_trade_deal():
+  data = request.get_json()
+  return jsonify({
+    'return': Alliance.end_trade_deal(data['key'], data['trade_type'])
+  })
+
+@app.route('/alliance/accept_trade_deal', methods=['POST'])
+def accept_alliance_trade_deal():
+  data = request.get_json()
+  return jsonify({
+    'return': Alliance.accept_alliance_trade_deal(**data)
+  })
+
 @socketio.on('Joined')
 def on_join(data):
     print(data)
     username = data['country']
     room = data['room']
     join_room(str(room))
+    list_of_rooms =  Alliance.get_list_ally_rooms(data['ids'])
+    for room in list_of_rooms:
+      join_room(room)
+      
     emit('Update', username + ' has joined the server.', to=str(room), broadcast=True)
 
 @socketio.on('change_name')
@@ -299,6 +317,11 @@ def AllianceRequest(data):
 def AllianceTradeRequest(data):
   returns = Alliance.getAllianceTradeRequests(data['country'])
   emit("HEREISYOURALLIANCETRADEREQUESTS", returns)
+
+@socketio.on('AllianceTradeEnded')
+def AllianceTradeEnded(data):
+  alliance_trade_end_statement = Alliance.get_alliance_end_statement(data['key'], data['trade_type'], data['country'])
+  emit("YourAllianceTradeHaveEnded", alliance_trade_end_statement, to='AllianceRoom'+str(data['key']), broadcast=True)
 
 if __name__ == '__main__':
     User.server_running = True

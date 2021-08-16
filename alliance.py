@@ -55,6 +55,14 @@ class Alliance:
     conn.commit()
     conn.close()
 
+  @staticmethod
+  def changing_db(query):
+    conn = sqlite3.connect('server.db')
+    cursor =  conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+
   def cancel_trade_agreement(self, which: str):
     trades = {'army_trade': self.army_trade, 'communication': self.communication, 'trade': self.trade, 'transport': self.transport}
 
@@ -64,6 +72,7 @@ class Alliance:
       )
       self.change_db(query)
       self.__dict__[which] = 0
+      return "Trade Agreement has been canceled"
     else:
       return "Trade Agreement has not been created"
 
@@ -86,6 +95,7 @@ class Alliance:
       )
       self.change_db(query)
       self.__dict__[which] = 1
+      return "Trade Agreement has been created"
     else:
       return "Trade Agreement has already being created"
 
@@ -266,9 +276,9 @@ class Alliance:
     'com_trade': Alliance.create_communication_trade_requests, 
     'trade': Alliance.create_trade_request}
     
-    if Alliance.trade_request_already_exist(trade_type, creator_id, acceptor_id, alliance_id) == False:
+    if Alliance.trade_request_already_exist(trade_type, creator_id, acceptor_id[0], alliance_id) == False:
 
-      impor_func[trade_type](alliance_id, creator_id, acceptor_id)
+      impor_func[trade_type](alliance_id, creator_id, acceptor_id[0])
 
       return "Trade Request has been sent"
     else:
@@ -292,15 +302,16 @@ class Alliance:
 
       data = cursor.fetchone()
 
-      query = "select name from Countries where id={}".format(data[1])
-      cursor.execute(query)
+      if data != None:
+        query = "select name from Countries where id={}".format(data[1])
+        cursor.execute(query)
 
-      name = cursor.fetchone()[0]
+        name = cursor.fetchone()[0]
 
-      all_different_trade_request[trade_list[keys]].append({
-        'data': data,
-        'statement': Alliance.generate_trade_request_statement(keys, name)
-      })
+        all_different_trade_request[trade_list[keys]].append({
+          'data': data,
+          'statement': Alliance.generate_trade_request_statement(keys, name)
+        })
 
     return all_different_trade_request
 
@@ -309,17 +320,163 @@ class Alliance:
   def generate_trade_request_statement(trade_type, name):
     statement = "Unknown trade type"
     
-    if trade_type == 'army_trade':
+    if trade_type == 'army_trade_request':
       statement = f'{name} is requesting to create a Army Trade which will cost you 300 Capital to create and 600 Capital to manage. Are you sure you want to accept?'
-    elif trade_type == 'transport_trade':
+    elif trade_type == 'transport_request':
       statement = f'{name} is requesting to create a Transport Trade which will cost you 1000 Capital to create and 2000 Capital to manage. Are you sure you want to accept?'
-    elif trade_type == 'com_trade':
+    elif trade_type == 'communication_trade_requests':
       statement = f'{name} is requesting to create a Communication Trade which will cost you 2500 Capital to create and 5000 Capital to manage. Are you sure you want to accept?'
-    elif trade_type == 'trade':
+    elif trade_type == 'trade_request':
       statement = f'{name} is requesting to create a Trade which will cost you 5000 Capital and 7000 Capital to manage. Are you sure you want to accept?'
 
     return statement
     
+  @staticmethod
+  def accept_alliance_trade_deal(**kwargs):
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
 
+    trade_list= {'Army Trade': 'army_trade_request', 
+    "Transport Trade": 'transport_request',
+    'Communication Trade': 'communication_trade_requests',
+    'Trade':'trade_request'
+    }
 
-    
+    trade_type = trade_list[kwargs['trade_type']]
+    query = "select id from {} where id={}".format(trade_type, kwargs['id'])
+    cursor.execute(query)
+
+    exist = cursor.fetchone()
+
+    if exist == None:
+      return "Trade Request No longer exist"
+
+    query = "delete from {} where id={}".format(trade_type, kwargs['id'])
+    cursor.execute(query)
+    conn.commit()
+
+    trades = {
+      'Army Trade': 'army_trade',
+      "Transport Trade": 'transport',
+      'Communication Trade': 'communication',
+      'Trade': 'trade'
+    }
+
+    try:
+      
+      ally = Alliance.all_active_allies[kwargs['alliance']]
+      return ally.start_trade_agreement(trades[kwargs['trade_type']])
+
+    except KeyError:
+      query = "update Alliance set {}={} where id={}".format(
+        trades[kwargs['trade_type']], 1, kwargs['alliance']
+      )
+
+      Alliance.changing_db(query)
+      return "Trade Agreement has been created"
+
+  @staticmethod
+  def end_trade_deal(alliance_id, trade_type):
+    trades = {
+      'army_trade':'army_trade',
+      'transport_trade':'transport',
+      'com_trade': 'communication',
+      'trade': 'trade'
+    }
+
+    try:
+      ally = Alliance.all_active_allies[alliance_id]
+      return ally.cancel_trade_agreement(trades[trade_type])
+    except KeyError:
+      query = "update Alliance set {}={} where id={}".format(
+        trades[trades[trade_type]], 0, alliance_id
+      )
+
+      Alliance.changing_db(query)
+      return "Trade Agreement has been canceled"
+
+  @staticmethod
+  def get_list_ally_rooms(country):
+    query = "select id from Alliance where creator={} or acceptor={}".format(country, country)
+
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
+
+    cursor.execute(query)
+
+    rooms = []
+
+    rooms_id = cursor.fetchall()
+
+    for room in rooms_id:
+      rooms.append("AllianceRoom" + str(room[0]))
+
+    conn.close()
+
+    return rooms
+
+  @staticmethod
+  def get_alliance_end_statement(ally_id, trade_type, country):
+    who = None
+    cencelor = None
+
+    # We first try the easy way of retrieving names, using the alliance reference
+    try:
+      alliance =  Alliance.all_active_allies[ally_id]
+      if alliance.creator.ids == country:
+        cencelor = alliance.creator.name
+        who = alliance.acceptor.name
+      else:
+        cencelor = alliance.acceptor.name
+        who = alliance.creator.name
+
+    except KeyError:
+      # If alliance is not online or "activated" we then go the hard way by making a query to the database asking for the needed data
+
+      query = "select creator, acceptor from Alliance where id={}".format(ally_id)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+
+      cursor.execute(query)
+
+      names = cursor.fetchone()
+
+      if names[0] == country:
+        query = "select name from Countries where id={}".format(names[0])
+
+        cursor.execute(query)
+
+        cencelor =  cursor.fetchone()[0]
+
+        query = "select name from Countries where id={}".format(names[1])
+
+        cursor.execute(query)
+
+        who =  cursor.fetchone()[0]
+
+      else:
+        query = "select name from Countries where id={}".format(names[1])
+
+        cursor.execute(query)
+
+        cencelor =  cursor.fetchone()[0]
+
+        query = "select name from Countries where id={}".format(names[0])
+
+        cursor.execute(query)
+
+        who =  cursor.fetchone()[0]
+
+      conn.close()
+
+    trades = {
+      'army_trade':'Army Trade',
+      'transport_trade':'Transport Trade',
+      'com_trade': 'Communication Trade',
+      'trade': 'Trade'
+    }
+
+    statement = "{} has canceled {} with {}".format(cencelor, trades[trade_type], who)
+
+    return statement
+
