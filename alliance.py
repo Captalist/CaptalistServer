@@ -332,6 +332,34 @@ class Alliance:
     return statement
     
   @staticmethod
+  def deny_alliance_trade_deal(**kwargs):
+    conn = sqlite3.connect('server.db')
+    cursor = conn.cursor()
+
+    trade_list= {'Army Trade': 'army_trade_request', 
+    "Transport Trade": 'transport_request',
+    'Communication Trade': 'communication_trade_requests',
+    'Trade':'trade_request'
+    }
+
+    trade_type = trade_list[kwargs['trade_type']]
+    query = "select id from {} where id={}".format(trade_type, kwargs['id'])
+    cursor.execute(query)
+
+    exist = cursor.fetchone()
+
+    if exist == None:
+      return "Trade Request No longer exist"
+
+    query = "delete from {} where id={}".format(trade_type, kwargs['id'])
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+
+    return "Trade Request No longer exist"
+
+
+  @staticmethod
   def accept_alliance_trade_deal(**kwargs):
     conn = sqlite3.connect('server.db')
     cursor = conn.cursor()

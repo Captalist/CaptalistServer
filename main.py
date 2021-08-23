@@ -286,6 +286,13 @@ def accept_alliance_trade_deal():
     'return': Alliance.accept_alliance_trade_deal(**data)
   })
 
+@app.route('/alliance/deny_trade_deal', methods=['POST'])
+def deny_alliance_trade_deal():
+  data =  request.get_json()
+  return jsonify({
+    'return': Alliance.deny_alliance_trade_deal(**data)
+  })
+
 @socketio.on('Joined')
 def on_join(data):
     print(data)
