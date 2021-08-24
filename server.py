@@ -1,6 +1,7 @@
 from gov_classes import *
 from cities import Cities
 from alliance import Alliance
+from army import Army
 import requests 
 
 class Server:
@@ -208,6 +209,18 @@ class Server:
           except KeyError:
             continue
 
+        # Change army name later
+        query = "select id from Army where owner={}".format(country[0])
+        cursor.execute(query)
+
+        army_d = cursor.fetchall()
+
+        for army in army_d:
+          try:
+            Army.active_armies[army[0]].close()
+          except KeyError:
+            continue
+
         try:
           Server.servers[country[1]].countries.pop(country[0])
           Server.servers[country[1]].Users.pop(user_id)
@@ -303,6 +316,7 @@ class Server:
       query = "select * from Alliance where creator={} or acceptor={}".format(gov_id, gov_id)
       cursor.execute(query)
       allies = cursor.fetchall()
+      conn.close()
       if allies == None:
         return None
 
@@ -315,6 +329,24 @@ class Server:
 
       return count  
 
+    def get_user_armies(self, gov_id):
+      count = {}
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+
+      # Change army name later
+      query = "select * from Army where owner={}".format(gov_id)
+      cursor.execute(query)
+
+      armies =  cursor.fetchall()
+
+      conn.close()
+
+      if armies == None:
+        return None
+
+      for army in armies:
+        Army(*army)
 
     @staticmethod
     def create_new_server(user_id, name, code):
@@ -366,9 +398,9 @@ class Server:
     @staticmethod
     def join_server(id, user_id):
         try:
-            Server.servers[id].Users[user_id] = User.active_user[user_id]
+          Server.servers[id].Users[user_id] = User.active_user[user_id]
         except KeyError:
-            return "User not Logged In"
+          return "User not Logged In"
             
         """Activating Countries AND Resources"""
         user_countries = Server.servers[id].get_user_countries(user_id)
@@ -382,6 +414,7 @@ class Server:
           U_C[key] = val.return_data()
           Server.servers[id].get_user_cities(key)
           Server.servers[id].get_user_alliances(key)
+          Server.servers[id].get_user_armies(key)
         
         return U_C
 
