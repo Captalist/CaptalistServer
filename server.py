@@ -347,6 +347,8 @@ class Server:
 
       for army in armies:
         Army(*army)
+        count[army[0]] = army
+      return count
 
     @staticmethod
     def create_new_server(user_id, name, code):
