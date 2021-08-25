@@ -24,7 +24,7 @@
 > Army Trade - Facilitate any type of army trade between alliances
 
 
-> ommunication Trade - Although without this country/nation leaders will still be able to chat with their alliance country leader... this help users in the that nation to be able to facilitate conversation with someone in the other alliance nation.
+> Communication Trade - Although without this country/nation leaders will still be able to chat with their alliance country leader... this help users in the that nation to be able to facilitate conversation with someone in the other alliance nation.
 
 
 > Trade - This is used in any type of trade other than communications trade.
