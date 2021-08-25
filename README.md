@@ -3,7 +3,12 @@
 </p>
 
 <h1 align="center">CaptalistServer - Server Code for the Captalist game</h1>
-
+<p align="center">
+  <a href="https://github.com/Captalist/CaptalistServer#important-information">Important Information |</a>
+  <a href="https://github.com/Captalist/CaptalistServer#important-changes">Important Changes |</a>
+  <a href="https://github.com/Captalist/CaptalistServer#important-updates">Important Updates |</a>
+  <a href="https://github.com/Captalist/CaptalistServer#changes-working-on">Changes Working On</a>
+</p>
 
 # Important Information
 - To follow along with the development of the Captalist Server and game, check out the video logs on my youtube channel: <a href="https://youtube.com/playlist?list=PLDwvtvMiA-0_wbq37Sahp0ajwelzsyLX3">Playlist Link</a>
