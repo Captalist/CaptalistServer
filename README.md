@@ -22,8 +22,14 @@
 - Alliance Trade Request is now set up, countries/nations can now request a type of trade agreement with their alliance member.
 - Different type of trade request:
 > Army Trade - Facilitate any type of army trade between alliances
+
+
 > ommunication Trade - Although without this country/nation leaders will still be able to chat with their alliance country leader... this help users in the that nation to be able to facilitate conversation with someone in the other alliance nation.
+
+
 > Trade - This is used in any type of trade other than communications trade.
+
+
 > Transport Trade - This is needed to buy, sell, goods and even send aid of any kind.
 
 
