@@ -24,63 +24,103 @@ class Server:
         return string
 
     def get_user_cities(self, user):
-        for gov in self.countries.values():
-            if type(gov.owner) == int and gov.owner == user:
-                cities = {}
-                for city in self.city.values():
-                    if city.gov_id == gov.ids:
-                        data = city()
-                        cities[city.id] = data
-                return cities
-            elif type(gov.owner) == User and gov.owner.ids == user:
-                cities = {}
-                for city in self.city.values():
-                    if city.gov_id == gov.ids:
-                        data = city()
-                        cities[city.id] = data
-                return cities
-        
-        return "User does not exist"
+      """
+        Gets User City Data By:
+        1. Searching for country thats is in the server and owner by user
+        2. Using that countries id to collect ids of cities associated with it
+        3. Then Grabs those cities data before finnally returning to user.
+      """
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      query = "select id from Countries where owner={} and server={}".format(user, self.id)
+      cursor.execute(query)
+
+      count_id = cursor.fetchone()
+
+      if count_id != None:
+        query = "select id from cities where gov_id={}".format(count_id[0])
+        cursor.execute(query)
+
+        all_city_id = cursor.fetchall()
+        cities = {}
+
+        for city_id in all_city_id:
+          try:
+            data = Cities.active_cities[city_id]()
+            cities[city_id] = data
+          except KeyError:
+            continue
+
+        return cities
+    
+      return "User does not exist"
 
     @staticmethod
     def get_server_user_cities(server, user):
-        try:
-            servers = Server.servers[server]
-        except KeyError:
-            return {'return': 'Server does not exist'}
+      """
+        Gets User Server Cities Data using servers.get_user_cities function (not staticmethod)
+      """
+      try:
+        servers = Server.servers[server]
+      except KeyError:
+        return {'return': 'Server does not exist'}
 
-        returns = servers.get_user_cities(user)
-        if type(returns) == str:
-            return {'return': returns}
+      returns = servers.get_user_cities(user)
+      if type(returns) == str:
+        return {'return': returns}
 
-        for key in returns:
-            returns[key] = returns[key]()
-        return {'return': 'Success', 'data': returns}
+      for key in returns:
+        returns[key] = returns[key]()
+      return {'return': 'Success', 'data': returns}
 
     def get_country_data(self, user_id):
-        for country in self.countries.values():
-            if type(country.owner) == int and country.owner == user_id:
-                return country.return_data()
-            elif type(country.owner) == User and country.owner.ids == user_id:
-                return country.return_data()
+      """
+        Gets Country Data By:
+        1. First quering a country that the user owns and in the correct server
+        2. Then uses that country to get the correct data by calling Government.active_gov[count_id[0]].return_data() (count_id[0] variable containing country id)
+        3. Finally returning that data (If country not found, it returns User not found)
+      """
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      query = "select id from Countries where owner={} and server={}".format(user_id, self.id)
+      cursor.execute(query)
 
-        return "User not found"
+      count_id =  cursor.fetchone()
+
+      if count_id != None:
+        conn.close()
+        try:
+          return Government.active_gov[count_id[0]].return_data()
+        except KeyError:
+          return "User not found"
+
+      return "User not found"
 
     @staticmethod
     def get_count_data(server_id, user_id):
-        try:
-            server = Server.servers[server_id]
-        except KeyError:
-            return {'return': 'Server not found'}
+      """
+        Returns country data to client, using the function server.get_country_data (not a staticmethod)
+      """
+      try:
+        server = Server.servers[server_id]
+      except KeyError:
+        return {'return': 'Server not found'}
 
-        returns = server.get_country_data(user_id)
-        if type(returns) == str:
-            return {'return': returns}
+      returns = server.get_country_data(user_id)
+      if type(returns) == str:
+        return {'return': returns}
 
-        data = {'return': 'Success'}
-        return {**data, **returns}
+      data = {'return': 'Success'}
+      return {**data, **returns}
 
     def create_new_city(self, user_id, city_name):
+      """
+        Forms new city in server by:
+        1. First checking if a country already exist in server
+        2. Grabs that countries id then connects the new city to the country using foriegn key
+        3. Then finnally creates a class for that city before finally returning a list
+        ['Created', 'Name of Country connected to city']
+      """
       query = 'select id from Countries where server={} and owner={}'.format(self.id, user_id)
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
@@ -111,72 +151,91 @@ class Server:
 
     @staticmethod
     def form_new_city(server, user_id, city_name):
+      """
+        Forms new city using the function server.create_new_city() not staticmethod
+      """
       try:
         servers = Server.servers[server]
         returns =  servers.create_new_city(user_id, city_name)
         if type(returns) == list:
           return {'returns': returns[0], 'country':returns[1]}
-        return {'returns': servers.create_new_city(user_id, city_name)}
+        return {'returns': returns}
       except KeyError:
         return {'returns': 'Server does not exist'}
       
 
     def create_country(self, country_name, country_flag, user_id):
-        query = "select id from Countries where name='{}'".format(country_name)
-        conn = sqlite3.connect('server.db')
-        cursor = conn.cursor()
-        cursor.execute(query)
+      """
+        Creates country for user and then saves
+        1. First checks if country with the same name exist
+        2. If it does exist it returns "Name Taken"
+        3. Then Checks if the url for the flag, starts with 'https://flag-designer.appspot.com/' to make sure the url safe before crashing the server. If it is safe to carries on, if it is not safe it ends the function returning "Problem Getting flag from URL"
+        4. Save Country to database, and create a main city for that country. Before Finally return server_id
+      """
+      query = "select id from Countries where name='{}'".format(country_name)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
 
-        if cursor.fetchone() != None:
-            return "Name Taken"
+      if cursor.fetchone() != None:
+        return "Name Taken"
 
-        if country_flag.startswith('https://flag-designer.appspot.com/'):
-            flag = requests.get(country_flag)
-            if flag:
-                try:
-                    query = """insert into Countries (name, flag, pop, money, 
-                    owner, oil, iron, food, water, server)  
-                    values ('{}', '{}',{}, {}, {}, {},{}, {}, {}, {})""".format(
-                        country_name, flag.text, user_id, 100, 100, 100, 100,
-                        100, 100, self.id
-                    )
-                    cursor.execute(query)
-                    conn.commit()
+      if country_flag.startswith('https://flag-designer.appspot.com/'):
+        flag = requests.get(country_flag)
+        if flag:
+          try:
+            query = """insert into Countries (name, flag, pop, money, 
+            owner, oil, iron, food, water, server)  
+            values ('{}', '{}',{}, {}, {}, {},{}, {}, {}, {})""".format(
+              country_name, flag.text, user_id, 100, 100, 100, 100,
+              100, 100, self.id
+              )
+            cursor.execute(query)
+            conn.commit()
 
-                    query = "select id from Countries where name='{}' and flag='{}' and server={}".format(
-                        country_name, flag.text, self.id
-                    )
-                    cursor.execute(query)
-                    ids =  cursor.fetchone()
+            query = "select id from Countries where name='{}' and flag='{}' and server={}".format(
+              country_name, flag.text, self.id
+            )
+            cursor.execute(query)
+            ids =  cursor.fetchone()
 
-                    query = """insert into cities (name, level, max_pop, tax, pop, gov_id, oil, iron, water, food) 
-                    values ('{}', 0, 100, 0.25, 100, {}, 0, 0, 0, 0)""".format(
-                        country_name+' city', ids[0]
-                    )
-                    cursor.execute(query) 
-                    conn.commit()
-                    conn.close()
-                    if ids != None:
-                        return {"Server_id": ids}
-                    return 'Errror'
-                except Exception as e:
-                    print(e)
-                    return "Error"
-            return "Problem Getting Flag From URL"
-        return "Invalid URL"
+            query = """insert into cities (name, level, max_pop, tax, pop, gov_id, oil, iron, water, food) 
+            values ('{}', 0, 100, 0.25, 100, {}, 0, 0, 0, 0)""".format(
+              country_name+' city', ids[0]
+            )
+            cursor.execute(query) 
+            conn.commit()
+            conn.close()
+            if ids != None:
+              return {"Server_id": ids}
+
+            return 'Errror'
+          except Exception as e:
+            print(e)
+            return "Error"
+          return "Problem Getting Flag From URL"
+      return "Invalid URL"
 
     @staticmethod
     def create_new_country(server_id, country_name, country_flag, user_id):
-        try:
-            ret = Server.servers[server_id]
-        except KeyError:
-            return {'return': 'Server Does Not Exist'}
+      """
+        Creates new country in server using the function server.create_country and then returns the result of the function
+      """
+      try:
+        ret = Server.servers[server_id]
+      except KeyError:
+        return {'return': 'Server Does Not Exist'}
 
-        rets = ret.create_country(country_name, country_flag, user_id)
-        return {'return': rets}
+      rets = ret.create_country(country_name, country_flag, user_id)
+      return {'return': rets}
 
     @staticmethod
     def user_sign_out(user_id):
+      """
+        1. First grabs all the countries a certain user has.
+        2. Loops through those countries, to delete the active alliance, the cities, the army, and finally remove the country from server
+        3. Then finally deletes the user
+      """
       query = "select id,server from countries where owner={}".format(user_id)
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
@@ -249,28 +308,34 @@ class Server:
 
     @staticmethod
     def server_data(user_id):
-        query = "select server from countries where owner={}".format(user_id)
-        conn = sqlite3.connect('server.db')
-        cursor = conn.cursor()
-        cursor.execute(query)
+      """
+        It sends data from servers where user have a country in
+        1. First select all server_id of countries that user own
+        2. loops through those server_id and grab the server data like its name, code, count, and id
+        3. Finally sends this data to the user
+      """
+      query = "select server from countries where owner={}".format(user_id)
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      cursor.execute(query)
 
-        server_dat = cursor.fetchall()
-        server_data = {'You_Own':[], 'SomeOne_Else_Own':[]}
+      server_dat = cursor.fetchall()
+      server_data = {'You_Own':[], 'SomeOne_Else_Own':[]}
 
-        if server_dat != None:
-            for servers in server_dat:
-                server = Server.servers[servers[0]]
+      if server_dat != None:
+        for servers in server_dat:
+          server = Server.servers[servers[0]]
 
-                if server.owner_id == user_id:
-                    server_data['You_Own'].append({'Name': server.name, 'Code': server.code, 'Count': len(server.Users), 'server_id': server.id})
-                else:
-                    query = "select name from user where id={}".format(server.owner_id)
-                    cursor.execute(query)
-                    name = cursor.fetchone()[0]
-                    server_data['SomeOne_Else_Own'].append({'Name': server.name, 'Code': server.code, 'Count': len(server.Users), 'Owner': name, 'server_id': server.id})
+          if server.owner_id == user_id:
+            server_data['You_Own'].append({'Name': server.name, 'Code': server.code, 'Count': len(server.Users), 'server_id': server.id})
+          else:
+            query = "select name from user where id={}".format(server.owner_id)
+            cursor.execute(query)
+            name = cursor.fetchone()[0]
+            server_data['SomeOne_Else_Own'].append({'Name': server.name, 'Code': server.code, 'Count': len(server.Users), 'Owner': name, 'server_id': server.id})
 
-        conn.close()
-        return server_data
+      conn.close()
+      return server_data
 
     def get_user_countries(self, user_id):
         count = {}
@@ -292,24 +357,35 @@ class Server:
         return count
 
     def get_user_cities(self, gov_id):
-        count = {}
-        conn = sqlite3.connect('server.db')
-        cursor=  conn.cursor()
-        query = "select * from cities where gov_id={}".format(gov_id)
-        cursor.execute(query)
-        cities = cursor.fetchall()
-        conn.close()
+      """
+        Get all the cities owned by a Country
+        1. Then creates the city classes before adding it to the server.city dict
+        2. Finally return all the city class instance
+      """
+      count = {}
+      conn = sqlite3.connect('server.db')
+      cursor=  conn.cursor()
+      query = "select * from cities where gov_id={}".format(gov_id)
+      cursor.execute(query)
+      cities = cursor.fetchall()
+      conn.close()
 
-        if cities == None:
-            return None
+      if cities == None:
+        return None
 
-        for city in cities:
-            count[city[0]] = Cities(*city)
-            self.city[city[0]] = count[city[0]]
+      for city in cities:
+        count[city[0]] = Cities(*city)
+        self.city[city[0]] = count[city[0]]
 
-        return count
+      return count
     
     def get_user_alliances(self, gov_id):
+      """
+        Get User Alliances
+        1. Grabs all the alliance tied to a government
+        2. loop through each then creating seperate class instances
+        3. Finally returning does Alliance class instances
+      """
       count = {}
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
@@ -330,6 +406,12 @@ class Server:
       return count  
 
     def get_user_armies(self, gov_id):
+      """
+        Gets all the Armies tied to a country
+        1. Does a database search for all the Armies data
+        2. Creates seperate armies class instances 
+        3. Finally returning all the armies class instances
+      """
       count = {}
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
@@ -352,36 +434,42 @@ class Server:
 
     @staticmethod
     def create_new_server(user_id, name, code):
-        conn = sqlite3.connect('server.db')
-        cursor = conn.cursor()
-        query = "select id from servers where name='{}'".format(name)
-        cursor.execute(query)
+      """
+        Creates a new server, adds to database and create a Server class instance for it
+        1. First checks if server_name is already taken
+        2. If not taken it goes on to save server in database, if taken it returns server already exist
+        3. Once done it creates the Server class instance and returns the server id
+      """
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      query = "select id from servers where name='{}'".format(name)
+      cursor.execute(query)
 
-        if cursor.fetchone() != None:
-            return {'return':"Server Already Exists"}
+      if cursor.fetchone() != None:
+        return {'return':"Server Already Exists"}
 
-        query = "insert into servers (owner, name, code) values ('{}', '{}', '{}')".format(
-            user_id, name, code
-        )
+      query = "insert into servers (owner, name, code) values ('{}', '{}', '{}')".format(
+        user_id, name, code
+      )
 
-        cursor.execute(query)
-        conn.commit()
+      cursor.execute(query)
+      conn.commit()
 
-        query = "select id from servers where name='{}' and code='{}' and owner='{}'".format(
-            name, code, user_id
-        )
+      query = "select id from servers where name='{}' and code='{}' and owner='{}'".format(
+        name, code, user_id
+      )
 
-        cursor.execute(query)
-        server_id = cursor.fetchone()
+      cursor.execute(query)
+      server_id = cursor.fetchone()
 
-        if server_id == None:
-            return {'return':"Problem Creating Server"}
+      if server_id == None:
+        return {'return':"Problem Creating Server"}
 
-        Server(server_id[0], user_id, name, code)
+      Server(server_id[0], user_id, name, code)
 
-        conn.close()
+      conn.close()
 
-        return {'return':"Server Created", 'server_id': server_id}
+      return {'return':"Server Created", 'server_id': server_id}
 
 
     @staticmethod
@@ -399,28 +487,46 @@ class Server:
 
     @staticmethod
     def join_server(id, user_id):
-        try:
-          Server.servers[id].Users[user_id] = User.active_user[user_id]
-        except KeyError:
-          return "User not Logged In"
+      """
+        Joins the user into Server.Users dictionaries and then create neccerary classes like cities, alliance and armies
+      """
+      try:
+        Server.servers[id].Users[user_id] = User.active_user[user_id]
+      except KeyError:
+        return "User not Logged In"
             
-        """Activating Countries AND Resources"""
-        user_countries = Server.servers[id].get_user_countries(user_id)
+      """Activating Countries AND Resources"""
+      user_countries = Server.servers[id].get_user_countries(user_id)
         
-        if user_countries == None:
-            return None 
+      if user_countries == None:
+        return None 
 
-        U_C = {}
+      U_C = {}
 
-        for key, val in user_countries.items():
-          U_C[key] = val.return_data()
-          Server.servers[id].get_user_cities(key)
-          Server.servers[id].get_user_alliances(key)
-          Server.servers[id].get_user_armies(key)
+      for key, val in user_countries.items():
+        U_C[key] = val.return_data()
+        Server.servers[id].get_user_cities(key)
+        Server.servers[id].get_user_alliances(key)
+        Server.servers[id].get_user_armies(key)
         
-        return U_C
+      return U_C
 
     def add_new_ally(self, ally_name, country_id):
+      """
+      \nCRA - Country Requesting Alliance
+      \nCAA - Country Accepting Alliance
+      \nCreates a alliance request with another country by:
+
+        \tA. First gets the id of the CAA using it name 
+
+        \tB. Checks if alliance_request already exist from both CRA and CAA 
+
+        \tC. If it does not exist, it then checks if alliance already exist between      CRA and CAA using Alliance.does_alliance_already_exist (staticmethod)
+
+        \tD. If it does not exist, it goes on to create the alliance_request using       Government.create_alliance_request (staticmethod)
+
+        \tE. Finnally returning request sent
+      """
       query = "select id from Countries where name='{}'".format(ally_name)
 
       conn = sqlite3.connect('server.db')
@@ -450,6 +556,9 @@ class Server:
       if ans != None:
         return "Request has already been sent"
 
+      if Alliance.does_alliance_already_exist(ally_id[0], country_id) != None:
+        return "Alliance already exist"
+
       conn.close()
 
       Government.create_alliance_request(country_id, ally_id[0])
@@ -457,6 +566,14 @@ class Server:
       return "Request sent"
 
     def getAllianceRequest(self, country_id):
+      """
+        Loops through all the alliance request sent to a country and returns it in dict format
+        {
+          'data': A database row of a request, [id, creator, acceptor]
+          'name': Name of country requesting alliance
+          'statement': String that will be shown on the client side "{name} wants to form an alliance."
+        }
+      """
       query = "select * from alliance_request where acceptor={}".format(country_id)
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
@@ -478,6 +595,9 @@ class Server:
       return all_requests
 
     def acceptAllianceRequest(self, acceptor, creator):
+      """
+        Deletes Alliance_request from database and then creates Alliance between acceptor and creator, then adds it to database using the Government.create_alliance function (staticmethod)... Finnally creating a alliance class for that alliance.
+      """
       try:
         all_acceptor = Government.active_gov[acceptor]
         all_creator =  Government.active_gov[creator]
@@ -507,6 +627,9 @@ class Server:
       return "Success"
 
     def denyAllianceRequest(self, acceptor, creator):
+      """
+        Deletes alliance_request from database and if it worked, it returns "Success"
+      """
       query = "delete from alliance_request where acceptor={} and creator={}".format(acceptor, creator)
 
       conn = sqlite3.connect('server.db')

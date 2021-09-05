@@ -15,51 +15,42 @@ app = Flask(__name__)
 app.secret_key = 'ChidozieNnajiMySQLAdminDbhost2005@gmail.com#codewithcn.com'
 socketio = SocketIO(app, logger=True, engineio_logger=True)
 def send_email(subject, message, email, emailer, emailer_pass):
-        port = 587  # For starttls
-        smtp_server = "smtp.mail.me.com"
-        sender_email = emailer
-        receiver_email = email
-        password = emailer_pass
-        messages = MIMEMultipart()
-        messages['From'] = sender_email
-        messages['To'] = receiver_email
-        messages['Subject'] = subject
-        messages['Bcc'] = receiver_email
-        messages.attach(MIMEText(message, 'plain'))
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_server, port) as server:
-            server.ehlo()  # Can be omitted
-            server.starttls(context=context)
-            server.ehlo()  # Can be omitted
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, messages.as_string())
+  port = 587  # For starttls
+  smtp_server = "smtp.mail.me.com"
+  sender_email = emailer
+  receiver_email = email
+  password = emailer_pass
+  messages = MIMEMultipart()
+  messages['From'] = sender_email
+  messages['To'] = receiver_email
+  messages['Subject'] = subject
+  messages['Bcc'] = receiver_email
+  messages.attach(MIMEText(message, 'plain'))
+  context = ssl.create_default_context()
+  with smtplib.SMTP(smtp_server, port) as server:
+    server.ehlo()  # Can be omitted
+    server.starttls(context=context)
+    server.ehlo()  # Can be omitted
+    server.login(sender_email, password)
+    server.sendmail(sender_email, receiver_email, messages.as_string())
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+  return render_template('index.html')
 
 @app.route('/about', methods=['GET'])
 def about():
-    return render_template('about.html')
+  return render_template('about.html')
     
 @app.route("/login", methods=['POST'])
 def login():
-    data = request.get_json()
-    try:
-        returns = User.login(data['name'], data['password'])
-        if type(returns) == int:
-            session['id'] = returns
-            session['name'] = data['name']
-            session['password'] = data['password']
-            resp = make_response(jsonify({'return': 'Correctly Logged In', 'id': session['id'], 'name': session['name'],
-            'password':session['password']}))
-            for key in session:
-                resp.headers.add('Set-Cookie', '{}={}; SameSite=Lax; Secure'.format(key, session[key]))
-               
-            return resp
-        return jsonify({'return': returns})
-    except KeyError:
-        return jsonify({'return': 'Can not get key'})
+  data = request.get_json()
+  try:
+    returns = User.login(data['name'], data['password'])
+    if type(returns) == int:
+      return jsonify({'return': returns})
+  except KeyError:
+    return jsonify({'return': 'Can not get key'})
 
 
 @app.route('/sign_out', methods=['POST'])
@@ -74,143 +65,157 @@ def sign_out():
 
 @app.route('/server_data', methods=["POST"])
 def server_data():
-    data = request.get_json()
-    server_data = Server.server_data(data['id'])
-    return jsonify(server_data)
+  data = request.get_json()
+  server_data = Server.server_data(data['id'])
+  return jsonify(server_data)
 
 
 @app.route('/join/server', methods=['POST'])
 def join_server():
-    data = request.get_json()
-    query = "select id from servers where name='{}' and code='{}'".format(
-        data['name'], data['password']
-    )
-    conn = sqlite3.connect('server.db')
-    cursor =  conn.cursor()
-    cursor.execute(query)
-    server_id = cursor.fetchone()
-    conn.close()
-    if server_id != None:
-        count = Server.join_server(server_id[0], data['id'])
-        if count != None:
-            if count == "User not Logged In":
-                return jsonify({'return':'Failed, Your are not logged in'})
+  data = request.get_json()
+  query = "select id from servers where name='{}' and code='{}'".format(
+    data['name'], data['password']
+  )
+  conn = sqlite3.connect('server.db')
+  cursor =  conn.cursor()
+  cursor.execute(query)
+  server_id = cursor.fetchone()
+  conn.close()
+  if server_id != None:
+    count = Server.join_server(server_id[0], data['id'])
+    if count != None:
+      if count == "User not Logged In":
+        return jsonify({'return':'Failed, Your are not logged in'})
 
-            if len(count.keys()) == 0:
-                return jsonify({'return': "You do not have a country in this server",'server_id':server_id[0]})  
+      if len(count.keys()) == 0:
+        return jsonify({'return': "You do not have a country in this server",'server_id':server_id[0]})  
 
-            return jsonify({'return': 'Success', 'country_id':count, 'server_id':server_id[0]})
-        return jsonify({'return': "You do not have a country in this server", 'server_id':server_id[0]})
-    return jsonify({'return': 'Server does not exist'})
+      return jsonify({'return': 'Success', 'country_id':count, 'server_id':server_id[0]})
+
+    return jsonify({'return': "You do not have a country in this server", 'server_id':server_id[0]})
+
+  return jsonify({'return': 'Server does not exist'})
 
 
 @app.route('/create/server', methods=['POST'])
 def create_server():
-    data = request.get_json()
-    returns = Server.create_new_server(data['id'], data['name'], data['psw'])
-    return jsonify(returns)
+  data = request.get_json()
+  returns = Server.create_new_server(data['id'], data['name'], data['psw'])
+  return jsonify(returns)
     
 @app.route('/create/country', methods=['POST'])
 def create_country():
-    data = request.get_json()
-    returns = Server.create_new_country(data['server_id'], data['country_name'], data['country_flag'], data['user_id'])
-    return jsonify(returns)
+  data = request.get_json()
+  returns = Server.create_new_country(data['server_id'], data['country_name'], data['country_flag'], data['user_id'])
+  return jsonify(returns)
 
 @app.route('/get_country_data', methods=['POST'])
 def country_data():
-    data = request.get_json()
-    returns = Server.get_count_data(data['server_id'], data['user_id'])
-    return jsonify(returns)
+  data = request.get_json()
+  returns = Server.get_count_data(data['server_id'], data['user_id'])
+  return jsonify(returns)
 
 @app.route('/get/city/data', methods=['POST'])
 def get_city_data():
-    data = request.get_json()
-    returns = Server.get_server_user_cities(data['server_id'], data['user_id'])
-    return jsonify(returns)
+  data = request.get_json()
+  returns = Server.get_server_user_cities(data['server_id'], data['user_id'])
+  return jsonify(returns)
     
 @app.route('/change/city/data', methods=['POST'])
 def change_city_data():
-    data = request.get_json()
-    try:
-        if data['action'] == 'change_name':
-            Cities.active_cities[data['id']].change_name(data['name'])
-            return jsonify({'return': 'Success'})
-        elif data['action'] =='change_tax':
-            Cities.active_cities[data['id']].change_tax(data['tax'])
-            return jsonify({'return': 'Success'})
-        elif data['action'] == 'change_level':
-            gov_id = Cities.active_cities[data['id']].gov_id
-            money =  Government.active_gov[gov_id].money
-            state_ment = Cities.active_cities[data['id']].upgrade(money)
-            if state_ment == "Not Enough":
-                return jsonify({'return': "You do not have enough money to upgrade city"})
-            else:
-                Government.active_gov[gov_id].remove_money(state_ment)
-                return jsonify({
-                    'return': 'Success',
-                    'Max Pop': Cities.active_cities[data['id']].max_pop,
-                    'Level': Cities.active_cities[data['id']].level
-                })
-        elif data['action'] == 'add_oil':
-            oil = Cities.active_cities[data['id']].oil
-            Cities.active_cities[data['id']].change_oil(oil+1)
-            return jsonify({
-                'return': 'Success',
-                'oil': Cities.active_cities[data['id']].oil
-            })
-        elif data['action'] == 'remove_oil':
-            oil = Cities.active_cities[data['id']].oil
-            Cities.active_cities[data['id']].change_oil(oil-1)
-            return jsonify({
-                'return': 'Success',
-                'oil': Cities.active_cities[data['id']].oil
-            })
-        elif data['action'] == 'remove_food':
-            food = Cities.active_cities[data['id']].food
-            Cities.active_cities[data['id']].change_food(food-1)
-            return jsonify({
-                'return': 'Success',
-                'food': Cities.active_cities[data['id']].food
-            })
-        elif data['action'] == 'add_food':
-            food = Cities.active_cities[data['id']].food
-            Cities.active_cities[data['id']].change_food(food+1)
-            return jsonify({
-                'return': 'Success',
-                'food': Cities.active_cities[data['id']].food
-            })
-        elif data['action'] == 'add_iron':
-            iron = Cities.active_cities[data['id']].iron
-            Cities.active_cities[data['id']].change_iron(iron + 1)
-            return jsonify({
-                'return': 'Success',
-                'iron': Cities.active_cities[data['id']].iron
-            })
-        elif data['action'] == 'remove_iron':
-            iron = Cities.active_cities[data['id']].iron
-            Cities.active_cities[data['id']].change_iron(iron - 1)
-            return jsonify({
-                'return': 'Success',
-                'iron': Cities.active_cities[data['id']].iron
-            })
-        elif data['action'] == 'add_water':
-            water = Cities.active_cities[data['id']].water
-            Cities.active_cities[data['id']].change_water(water+1)
-            return jsonify({
-                'return': 'Success',
-                'water': Cities.active_cities[data['id']].water
-            })
-        elif data['action'] == 'remove_water':
-            water = Cities.active_cities[data['id']].water
-            Cities.active_cities[data['id']].change_water(water-1)
-            return jsonify({
-                'return': 'Success',
-                'water': Cities.active_cities[data['id']].water
-            })
-        else:
-            return jsonify({'return': 'Invalid Actions'})
-    except KeyError:
-        return jsonify({'return': 'Invalid Parameters'})
+  data = request.get_json()
+  try:
+    if data['action'] == 'change_name':
+      Cities.active_cities[data['id']].change_name(data['name'])
+      return jsonify({'return': 'Success'})
+
+    elif data['action'] =='change_tax':
+      Cities.active_cities[data['id']].change_tax(data['tax'])
+      return jsonify({'return': 'Success'})
+
+    elif data['action'] == 'change_level':
+      gov_id = Cities.active_cities[data['id']].gov_id
+      money =  Government.active_gov[gov_id].money
+      state_ment = Cities.active_cities[data['id']].upgrade(money)
+      if state_ment == "Not Enough":
+        return jsonify({'return': "You do not have enough money to upgrade city"})
+      else:
+        Government.active_gov[gov_id].remove_money(state_ment)
+        return jsonify({
+          'return': 'Success',
+          'Max Pop': Cities.active_cities[data['id']].max_pop,
+          'Level': Cities.active_cities[data['id']].level
+        })
+
+    elif data['action'] == 'add_oil':
+      oil = Cities.active_cities[data['id']].oil
+      Cities.active_cities[data['id']].change_oil(oil+1)
+      return jsonify({
+        'return': 'Success',
+        'oil': Cities.active_cities[data['id']].oil
+      })
+
+    elif data['action'] == 'remove_oil':
+      oil = Cities.active_cities[data['id']].oil
+      Cities.active_cities[data['id']].change_oil(oil-1)
+      return jsonify({
+        'return': 'Success',
+        'oil': Cities.active_cities[data['id']].oil
+      })
+
+    elif data['action'] == 'remove_food':
+      food = Cities.active_cities[data['id']].food
+      Cities.active_cities[data['id']].change_food(food-1)
+      return jsonify({
+        'return': 'Success',
+        'food': Cities.active_cities[data['id']].food
+      })
+
+    elif data['action'] == 'add_food':
+      food = Cities.active_cities[data['id']].food
+      Cities.active_cities[data['id']].change_food(food+1)
+      return jsonify({
+        'return': 'Success',
+        'food': Cities.active_cities[data['id']].food
+      })
+
+    elif data['action'] == 'add_iron':
+      iron = Cities.active_cities[data['id']].iron
+      Cities.active_cities[data['id']].change_iron(iron + 1)
+      return jsonify({
+        'return': 'Success',
+        'iron': Cities.active_cities[data['id']].iron
+      })
+
+    elif data['action'] == 'remove_iron':
+      iron = Cities.active_cities[data['id']].iron
+      Cities.active_cities[data['id']].change_iron(iron - 1)
+      return jsonify({
+        'return': 'Success',
+        'iron': Cities.active_cities[data['id']].iron
+      })
+
+    elif data['action'] == 'add_water':
+      water = Cities.active_cities[data['id']].water
+      Cities.active_cities[data['id']].change_water(water+1)
+      return jsonify({
+        'return': 'Success',
+        'water': Cities.active_cities[data['id']].water
+      })
+
+    elif data['action'] == 'remove_water':
+      water = Cities.active_cities[data['id']].water
+      Cities.active_cities[data['id']].change_water(water-1)
+      return jsonify({
+        'return': 'Success',
+        'water': Cities.active_cities[data['id']].water
+      })
+
+    else:
+      return jsonify({'return': 'Invalid Actions'})
+
+  except KeyError:
+    return jsonify({'return': 'Invalid Parameters'})
 
 @app.route('/create/new_city', methods=['POST'])
 def create_new_city():
@@ -224,7 +229,6 @@ def create_new_city():
 @app.route('/get/alliance/data', methods=['POST'])
 def get_alliance_data():
   data = request.get_json()
-
   try:
     statement = Alliance.alliance_data(data['country_id'])
     return jsonify({'data': statement, 'returns': 'Success'})
@@ -235,7 +239,6 @@ def get_alliance_data():
 @app.route('/add/ally', methods=['POST'])
 def add_ally():
   data = request.get_json()
-
   return jsonify({'return':Server.servers[data['server_id']].add_new_ally(
     data['new_ally'], data['country_id']
   )})
@@ -295,15 +298,15 @@ def deny_alliance_trade_deal():
 
 @socketio.on('Joined')
 def on_join(data):
-    print(data)
-    username = data['country']
-    room = data['room']
-    join_room(str(room))
-    list_of_rooms =  Alliance.get_list_ally_rooms(data['ids'])
-    for room in list_of_rooms:
-      join_room(room)
+  print(data)
+  username = data['country']
+  room = data['room']
+  join_room(str(room))
+  list_of_rooms =  Alliance.get_list_ally_rooms(data['ids'])
+  for room in list_of_rooms:
+    join_room(room)
       
-    emit('Update', username + ' has joined the server.', to=str(room), broadcast=True)
+  emit('Update', username + ' has joined the server.', to=str(room), broadcast=True)
 
 @socketio.on('change_name')
 def change_name(data):

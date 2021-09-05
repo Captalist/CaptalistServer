@@ -30,17 +30,17 @@ class Government:
         return string
         
     def return_data(self):
-        return {
-            'id': self.ids, 
-            'name': self.name,
-            'flag': self.flag,
-            'population': self.pop,
-            'money': self.money,
-            'oil': self.oil,
-            'iron': self.iron,
-            'food': self.food,
-            'water': self.water
-        }
+      return {
+        'id': self.ids, 
+        'name': self.name,
+        'flag': self.flag,
+        'population': self.pop,
+        'money': self.money,
+        'oil': self.oil,
+        'iron': self.iron,
+        'food': self.food,
+        'water': self.water
+      }
     def close(self):
         Government.active_gov.pop(self.ids, None)
         del self
@@ -155,37 +155,31 @@ class Government:
         self.change_pop(new)
 
     def change_money(self, new_):
-        query = """update Countries set money={} where id={}""".format(new_, self.ids)
-        self.change_q(query)
-        self.money = new_
+      """
+        Changes amount of money a government have
+      """
+      query = """update Countries set money={} where id={}""".format(new_, self.ids)
+      self.change_q(query)
+      self.money = new_
 
     def add_money(self, amount):
         new = self.money + amount
         self.change_money(new)
     
     def remove_money(self, amount):
-        new = self.money - amount
-        self.change_money(new)
+      """
+        Changes amount of money a government have
+      """
+      new = self.money - amount
+      self.change_money(new)
 
     @staticmethod
     def create_alliance_request(creator, acceptor):
+      """
+        Adds an alliance request to database
+      """
       conn = sqlite3.connect('server.db')
       cursor = conn.cursor()
-      query = 'select id from alliance_request where creator={} and acceptor={}'.format(creator, acceptor)
-
-      cursor.execute(query)
-
-      already_exist = cursor.fetchone()
-      if already_exist == None:
-        return
-
-      query = 'select id from alliance_request where creator={} and acceptor={}'.format(acceptor, creator)
-
-      cursor.execute(query)
-
-      already_exist = cursor.fetchone()
-      if already_exist == None:
-        return
         
       query= "insert into alliance_request (creator, acceptor) values ({},{})".format(creator, acceptor)
 
@@ -196,6 +190,9 @@ class Government:
 
     @staticmethod
     def create_alliance(creator, acceptor):
+      """
+        Adds alliance to database and returns the newly add allaince id
+      """
       query = "insert into Alliance (creator, acceptor, army_trade, communication, trade, transport) values ({}, {}, 0, 0, 0, 0)".format(creator, acceptor)
 
       conn = sqlite3.connect('server.db')

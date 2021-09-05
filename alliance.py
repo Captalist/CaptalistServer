@@ -49,6 +49,9 @@ class Alliance:
     return string
 
   def change_db(self, query):
+    """
+      Runs a database query and saves changes to database
+    """
     conn = sqlite3.connect('server.db')
     cursor =  conn.cursor()
     cursor.execute(query)
@@ -57,6 +60,9 @@ class Alliance:
 
   @staticmethod
   def changing_db(query):
+    """
+      Runs a database query and saves changes to database
+    """
     conn = sqlite3.connect('server.db')
     cursor =  conn.cursor()
     cursor.execute(query)
@@ -64,6 +70,9 @@ class Alliance:
     conn.close()
 
   def cancel_trade_agreement(self, which: str):
+    """
+      Based on which trade agreement that wants to be canceled, it changes it to a 0 in the class and in database
+    """
     trades = {'army_trade': self.army_trade, 'communication': self.communication, 'trade': self.trade, 'transport': self.transport}
 
     if trades[which] == True:
@@ -77,6 +86,17 @@ class Alliance:
       return "Trade Agreement has not been created"
 
   def return_data_and_trade_deals(self, country_id):
+    """
+      Returns Alliance and its trade deals in dict format
+      {
+        'Army Trade': True or False value of if it has been created,
+        'Transport': True or False value of if it has been created,
+        'Communication': True or False value of if it has been created,
+        'Trade': True or False value of if it has been created,
+        'Flag': 'Flag of alliance Member',
+        'Name': 'Name of Alliance Member'
+      }
+    """
     return {  **{
       'Army Trade': self.army_trade,
       'Transport': self.transport,
@@ -87,6 +107,9 @@ class Alliance:
     }
 
   def start_trade_agreement(self, which: str):
+    """
+      Creates trade agreement by setting class varaible from 0 to 1 and changing  those values in the databse as well
+    """
     trades = {'army_trade': self.army_trade, 'communication': self.communication, 'trade': self.trade, 'transport': self.transport}
     
     if trades[which] == False:
@@ -110,6 +133,14 @@ class Alliance:
     del self
 
   def return_data(self, country_id):
+    """
+      Returns Data of Alliance member
+      1. Checks which member data is needed by seeing which alliance member id is not the country_id requesting the data
+      2. Returns the given data in dict format {
+        'flag': Flag of country (string),
+        'Name': Name of country (string)
+      }
+    """
     if self.creator.ids != country_id:
       return {'flag': self.creator.flag, 'name': self.creator.name}
     return {'flag': self.acceptor.flag, 'name': self.acceptor.name}
@@ -149,6 +180,12 @@ class Alliance:
 
   @staticmethod
   def alliance_data(country_id):
+    """
+      Returns Alliance data of Countries
+      1. First queries all alliances id connected to a country_id
+      2. Loops through those alliances grabs their data using Alliance.return_data not a staticmethod
+      3. Finnally returning alliance data
+    """
     query = "select id from Alliance where acceptor={} or creator={}".format(country_id, country_id)
     conn = sqlite3.connect('server.db')
     cursor=conn.cursor()
@@ -169,6 +206,9 @@ class Alliance:
 
   @staticmethod
   def insert_into_db(query):
+    """
+      Runs a database query and saves changes to database
+    """
     conn = sqlite3.connect('server.db')
     cursor = conn.cursor()
     cursor.execute(query)
@@ -177,6 +217,9 @@ class Alliance:
 
   @staticmethod
   def trade_request_already_exist(type_trade, creator_id, acceptor_id, alliance_id):
+    """
+      Checks if a trade request has already been proccessed through the database
+    """
     real_name = {'army_trade': 'army_trade',
     'transport_trade': 'transport', 
     'com_trade': 'communication', 
@@ -245,6 +288,19 @@ class Alliance:
 
   @staticmethod
   def create_trade_deal(alliance_id, trade_type, acceptor_name):
+    """
+      CATR - Country Accepting Trade Request
+      CSTR - Country Sending Trade Request
+      Creates Needed Alliance Trade Request Agreement by:
+        1. First getting id of CATR, to be later used to get alliance id
+        2. Once the id has been selected it then checks if trade request has already been created using the function Alliance.trade_request_already_exist (staticmethod)
+        3. If request does not exist, it goes on to create the trade request to the corresponding trade type:
+          > army_trade - This function would be runned      Alliance.create_army_trade_request (staticmethod)
+          > transport_trade - This function would be runned Alliance.create_transport_request (staticmethod)
+          > com_trade - This function would be runned Alliance.create_communication_trade_requests (staticmethod)
+          > trade - This function would be runned Alliance.create_trade_request (staticmethod)
+
+    """
     query = 'select id from Countries where name="{}"'.format(acceptor_name)
     conn = sqlite3.connect('server.db')
     cursor = conn.cursor()
@@ -286,6 +342,36 @@ class Alliance:
 
   @staticmethod
   def getAllianceTradeRequests(country_id):
+    """
+      Makes a database query to grab all the alliance trade request sent to user and returns it in dict format
+      {
+        'Army Trade': [
+          Each index in list is a dict
+          {
+            'data': Data from database row of a alliance request [id, creator, acceptor, alliance],
+            'statement': Generated Statement by Alliance.generate_trade_request_statement function (staticmethod) that will be shown on client screen
+          }
+        ],
+        'Transport Trade': [
+          {
+            'data': Data from database row of a alliance request [id, creator, acceptor, alliance],
+            'statement': Generated Statement by Alliance.generate_trade_request_statement function (staticmethod) that will be shown on client screen
+          }
+        ],
+        'Communication Trade': [
+          {
+            'data': Data from database row of a alliance request [id, creator, acceptor, alliance],
+            'statement': Generated Statement by Alliance.generate_trade_request_statement function (staticmethod) that will be shown on client screen
+          }
+        ],
+        'Trade': [
+          {
+            'data': Data from database row of a alliance request [id, creator, acceptor, alliance],
+            'statement': Generated Statement by Alliance.generate_trade_request_statement function (staticmethod) that will be shown on client screen
+          }
+        ]
+      }
+    """
     trade_list = {'army_trade_request': 'Army Trade',
     'transport_request': 'Transport Trade', 
     'communication_trade_requests': 'Communication Trade', 
@@ -318,6 +404,9 @@ class Alliance:
 
   @staticmethod
   def generate_trade_request_statement(trade_type, name):
+    """
+      Generates the correct statement based on the trade_request being processed
+    """
     statement = "Unknown trade type"
     
     if trade_type == 'army_trade_request':
@@ -333,6 +422,9 @@ class Alliance:
     
   @staticmethod
   def deny_alliance_trade_deal(**kwargs):
+    """
+      First checks if trade request for a specific trade agreement still exist, if it does it deletes it from database.
+    """
     conn = sqlite3.connect('server.db')
     cursor = conn.cursor()
 
@@ -361,6 +453,13 @@ class Alliance:
 
   @staticmethod
   def accept_alliance_trade_deal(**kwargs):
+    """
+      Accept Alliance Trade Deal Request By:
+      1. Checking which request exactly is being accepted.
+      2. Checks if the request still exist, if not it ends the function
+      3. If it does exist, it goes on to delete the request, before trying to create a trade agreement using the function Allaince.start_trade_agreement (not staticmethod)
+      4. If the alliance class instance has not been created, it goes on to try and change it manually
+    """
     conn = sqlite3.connect('server.db')
     cursor = conn.cursor()
 
@@ -382,6 +481,7 @@ class Alliance:
     query = "delete from {} where id={}".format(trade_type, kwargs['id'])
     cursor.execute(query)
     conn.commit()
+    conn.close()
 
     trades = {
       'Army Trade': 'army_trade',
@@ -405,6 +505,9 @@ class Alliance:
 
   @staticmethod
   def end_trade_deal(alliance_id, trade_type):
+    """
+      Tries to cancel trade agreement using Alliance.cancel_trade_agreement (not staticmethod), if the alliance instance has not been created or was deleted, it tries canceling trade agreement manually by update the database with a query
+    """
     trades = {
       'army_trade':'army_trade',
       'transport_trade':'transport',
@@ -425,6 +528,9 @@ class Alliance:
 
   @staticmethod
   def get_list_ally_rooms(country):
+    """
+      Grabs the id of every alliance a country is in and returns that list
+    """
     query = "select id from Alliance where creator={} or acceptor={}".format(country, country)
 
     conn = sqlite3.connect('server.db')
@@ -445,6 +551,12 @@ class Alliance:
 
   @staticmethod
   def get_alliance_end_statement(ally_id, trade_type, country):
+    """
+      Returns Cancelation statement of who canceled which alliance statemet
+      Before giving the return statement it does:
+      1. Checks who is the cancelor and who isnt canceling
+      2.Then returns what trade was being canceled by the cancelor
+    """
     who = None
     cencelor = None
 
@@ -507,4 +619,32 @@ class Alliance:
     statement = "{} has canceled {} with {}".format(cencelor, trades[trade_type], who)
 
     return statement
+
+  @staticmethod
+  def does_alliance_already_exist(creator, acceptor):
+    """
+      Checks if alliance already exist, checking if either of the countries was the one to create or accept an alliance from one and another.
+    """
+    conn = sqlite3.connect("server.db")
+    cursor = conn.cursor()
+    query = "select id from Alliance where creator={} and acceptor={}".format(creator, acceptor)
+    cursor.execute(query)
+
+    ans = cursor.fetchone()
+
+    if ans != None:
+      conn.close()
+      return ans
+
+    query = "select id from Alliance where creator={} and acceptor={}".format(acceptor, creator)
+    cursor.execute(query)
+
+    ans = cursor.fetchone()
+
+    if ans != None:
+      conn.close()
+      return ans
+
+    return None
+    
 
