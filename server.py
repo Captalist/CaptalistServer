@@ -1,7 +1,7 @@
 from gov_classes import *
 from cities import Cities
 from alliance import Alliance
-from army import Army
+from army import Army, Troops, Tanks
 import requests 
 
 class Server:
@@ -46,8 +46,8 @@ class Server:
 
         for city_id in all_city_id:
           try:
-            data = Cities.active_cities[city_id]()
-            cities[city_id] = data
+            data = Cities.active_cities[city_id[0]]()
+            cities[city_id[0]] = data
           except KeyError:
             continue
 
@@ -69,8 +69,6 @@ class Server:
       if type(returns) == str:
         return {'return': returns}
 
-      for key in returns:
-        returns[key] = returns[key]()
       return {'return': 'Success', 'data': returns}
 
     def get_country_data(self, user_id):
@@ -290,8 +288,10 @@ class Server:
           Government.active_gov[country[0]].close()
         except KeyError:
           continue
-
-      User.active_user[user_id].delete()
+      try:
+        User.active_user[user_id].delete()
+      except KeyError:
+        pass
       return server_and_Count
 
     @staticmethod
@@ -338,25 +338,25 @@ class Server:
       return server_data
 
     def get_user_countries(self, user_id):
-        count = {}
-        conn = sqlite3.connect('server.db')
-        cursor = conn.cursor()
-        query = "select * from countries where server={} and owner={}".format(self.id, user_id)
+      count = {}
+      conn = sqlite3.connect('server.db')
+      cursor = conn.cursor()
+      query = "select * from countries where server={} and owner={}".format(self.id, user_id)
 
-        cursor.execute(query)
-        countries = cursor.fetchall()
-        conn.close()
+      cursor.execute(query)
+      countries = cursor.fetchall()
+      conn.close()
 
-        if countries == None:
-            return None
+      if countries == None:
+        return None
 
-        for countries in countries:
-            count[countries[0]] = Government(*countries[:-1])
-            self.countries[countries[0]] = count[countries[0]]
+      for countries in countries:
+        count[countries[0]] = Government(*countries[:-1])
+        self.countries[countries[0]] = count[countries[0]]
 
-        return count
+      return count
 
-    def get_user_cities(self, gov_id):
+    def get_user_country_cities(self, gov_id):
       """
         Get all the cities owned by a Country
         1. Then creates the city classes before adding it to the server.city dict
@@ -505,7 +505,7 @@ class Server:
 
       for key, val in user_countries.items():
         U_C[key] = val.return_data()
-        Server.servers[id].get_user_cities(key)
+        Server.servers[id].get_user_country_cities(key)
         Server.servers[id].get_user_alliances(key)
         Server.servers[id].get_user_armies(key)
         

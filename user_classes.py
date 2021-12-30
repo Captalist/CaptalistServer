@@ -28,7 +28,9 @@ class User:
       """
         Returns Identification of users in a dictionary format
       """
-      return self.return_idetifications()
+      ident = self.return_idetifications()
+      ident['id'] = ident['ids']
+      return ident
 
     # Saves all user data
     def save(self):
@@ -124,6 +126,8 @@ class User:
           User(ids=users[0], name=users[1], password=users[2], email=users[3])
           print(User.active_user[users[0]])
           conn.close()
+          return users[0]
+        else:
           return users[0]
       except Exception as e:
         print(e)

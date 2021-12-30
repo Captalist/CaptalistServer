@@ -48,7 +48,8 @@ def login():
   try:
     returns = User.login(data['name'], data['password'])
     if type(returns) == int:
-      return jsonify({'return': returns})
+      return jsonify({'return': 'Correctly Logged In', **User.active_user[returns].get_data()})
+    return jsonify({'return': returns})
   except KeyError:
     return jsonify({'return': 'Can not get key'})
 
@@ -296,6 +297,72 @@ def deny_alliance_trade_deal():
     'return': Alliance.deny_alliance_trade_deal(**data)
   })
 
+@app.route('/army/get/data', methods=['POST'])
+def get_army_data():
+  data = request.get_json()
+  returns = Army.get_country_data(data['country_id'])
+  print("ARMY DATA:", returns)
+  return jsonify({
+    'return': returns
+  })
+
+@app.route('/army/create', methods=['POST'])
+def create_army():
+  data =  request.get_json()
+  returns = Army.create_army(data['country_id'], data['name_of_army'])
+  return jsonify({
+    'return': returns
+  })
+
+@app.route('/army/specific/army/data', methods=['POST'])
+def specific_army_data():
+  data = request.get_json()
+  returns  = Army.get_army_details(data['army_id'])
+  return jsonify({
+    'return': returns
+  })
+
+
+@app.route("/army/add/troops/requirements", methods=['POST'])
+def add_troops_requirments():
+  return jsonify(Troops.creation_requirements)
+  
+@app.route("/army/add/troops", methods=['POST'])
+def add_troops():
+  data =  request.get_json()
+  returns =  Army.add_troops(data['army_id'], data['how_many'])
+  return jsonify({
+    'return': returns
+  })
+
+@app.route("/army/remove/troops", methods=['POST'])
+def remove_troops():
+  data = request.get_json()
+  returns = Army.subtract_troops(data['army_id'], data['how_many'])
+  return jsonify({
+    'return': returns
+  })
+
+@app.route("/army/add/tanks/requirements", methods=["POST"])
+def add_tanks_requirements():
+  return jsonify(Tanks.creation_requirements)
+
+@app.route("/army/add/tanks", methods=['POST'])
+def add_tanks():
+  data = request.get_json()
+  returns = Army.add_tanks(data["army_id"], data['how_many'])
+  return jsonify({
+    'return': returns
+  })
+  
+@app.route("/army/remove/tanks", methods=['POST'])
+def remove_tanks():
+  data =  request.get_json()
+  returns = Army.subtract_tanks(data['army_id'], data['how_many'])
+  return jsonify({
+    'return': returns
+  })
+  
 @socketio.on('Joined')
 def on_join(data):
   print(data)
@@ -310,8 +377,8 @@ def on_join(data):
 
 @socketio.on('change_name')
 def change_name(data):
-    old_name = Cities.active_cities[data['id']].name 
-    emit("Update", old_name + ' city has now become ' + data['name'] +' city', to=str(data['room']), broadcast=True)
+  old_name = Cities.active_cities[data['id']].name 
+  emit("Update", old_name + ' city has now become ' + data['name'] +' city', to=st(data['room']), broadcast=True)
 
 @socketio.on('new_city_created')
 def new_city_created(data):
@@ -334,12 +401,12 @@ def AllianceTradeEnded(data):
   emit("YourAllianceTradeHaveEnded", alliance_trade_end_statement, to='AllianceRoom'+str(data['key']), broadcast=True)
 
 if __name__ == '__main__':
-    User.server_running = True
-    Alliance.server_running = True
-    Server.run()
-    threading.Thread(target=Alliance.run_trade, args=()).start()
-    port = random.randint(2000, 9000)
-    print("POrt", port)
-    socketio.run(app, host='0.0.0.0', debug=True, port=port)
-    User.server_running= False
-    Alliance.server_running = False
+  User.server_running = True
+  Alliance.server_running = True
+  Server.run()
+  threading.Thread(target=Alliance.run_trade, args=()).start()
+  port = random.randint(2000, 9000)
+  print("POrt", port)
+  socketio.run(app, host='0.0.0.0', debug=True, port=port)
+  User.server_running= False
+  Alliance.server_running = False

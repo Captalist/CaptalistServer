@@ -23,6 +23,18 @@ class Government:
 
         Government.active_gov[self.ids] = self
 
+    def have_enough(self, dicts, how_many):
+      """
+        Used to see there is enough resources
+      """
+      new_dicts= {'oil': self.oil, 'iron': self.iron, 'food': self.food, 'water': self.water}
+
+      for d in dicts:
+        if new_dicts[d] < dicts[d] * how_many:
+          return False
+      
+      return True
+
     def __repr__(self):
         string = """
             ids={}, name={}, flag={}, pop={}, money={}
@@ -41,9 +53,10 @@ class Government:
         'food': self.food,
         'water': self.water
       }
+
     def close(self):
-        Government.active_gov.pop(self.ids, None)
-        del self
+      Government.active_gov.pop(self.ids, None)
+      del self
 
     def s_q(self, query, all=False, many=False, how_many=5, one=False):
         """
